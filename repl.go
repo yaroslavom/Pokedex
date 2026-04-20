@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+type config struct {
+	Next     *string
+	Previous *string
+}
+
 func cleanInput(text string) []string {
 	var fields []string
 	fields = strings.Fields(text)
@@ -18,27 +23,31 @@ func cleanInput(text string) []string {
 
 func startRepl() {
 	scanner := bufio.NewScanner(os.Stdin)
+	baseUrl := "https://pokeapi.co/api/v2/location-area"
+	cfg := config{Next: &baseUrl, Previous: nil}
+	commands := GetCommand()
+
 	fmt.Println("Welcome to the Pokedex!")
 	for {
-		// fmt.Print("Pokedex > ")
+		fmt.Print("Pokedex > ")
 		if !scanner.Scan() {
 			break
 		}
 
-		input := cleanInput(scanner.Text())
 		if scanner.Err() != nil {
 			scanner.Err()
 		}
+
+		input := cleanInput(scanner.Text())
 		if len(input) > 0 {
 			// fmt.Printf("Your command was: %v\n", input[0])
-			commands := GetCommand()
 			if _, ok := commands[input[0]]; ok {
-				commands[input[0]].callback()
-				// if err != nil {
-				// 	fmt.Println(err)
-				// }
+				err := commands[input[0]].callback(&cfg)
+				if err != nil {
+					fmt.Println(err)
+				}
 			} else {
-				fmt.Print("Unknown command")
+				fmt.Println("Unknown command")
 			}
 		}
 	}

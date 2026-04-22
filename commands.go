@@ -9,6 +9,10 @@ import (
 	"os"
 )
 
+type cacheState interface {
+	Get(string) ([]byte, bool)
+	Add(string, []byte)
+}
 type cliCommand struct {
 	name        string
 	description string
@@ -50,21 +54,27 @@ func GetCommand() map[string]cliCommand {
 	}
 }
 
-func fetchData[T any](url string) (T, error) {
+func fetchData[T any](url string, c cacheState) (T, error) {
 	var data T
-	resp, err := http.Get(url)
-	if err != nil {
-		return data, err
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return data, err
-	}
-	defer resp.Body.Close()
+	body, isCached := c.Get(url)
 
-	if resp.StatusCode > 299 {
-		fmt.Printf("Response failed with status code: %d and\nbody: %s\n", resp.StatusCode, body)
-		return data, err
+	if !isCached {
+		resp, err := http.Get(url)
+		if err != nil {
+			return data, err
+		}
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return data, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode > 299 {
+			fmt.Printf("Response failed with status code: %d and\nbody: %s\n", resp.StatusCode, body)
+			return data, err
+		}
+
+		c.Add(url, body)
 	}
 	if err := json.Unmarshal(body, &data); err != nil {
 		return data, err
@@ -73,9 +83,9 @@ func fetchData[T any](url string) (T, error) {
 }
 
 func moveMap(cfg *config, url *string) error {
-	response, err := fetchData[LocationResponse](*url)
+	response, err := fetchData[LocationResponse](*url, cfg.Cache)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 	if len(response.Results) > 0 {
 		for _, v := range response.Results {

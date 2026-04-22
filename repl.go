@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"pokedexcli/internal/pokecache"
 	"strings"
+	"time"
 )
 
 type config struct {
 	Next     *string
 	Previous *string
+	Cache    *pokecache.Cache
 }
 
 func cleanInput(text string) []string {
@@ -24,7 +27,8 @@ func cleanInput(text string) []string {
 func startRepl() {
 	scanner := bufio.NewScanner(os.Stdin)
 	baseUrl := "https://pokeapi.co/api/v2/location-area"
-	cfg := config{Next: &baseUrl, Previous: nil}
+	cache := pokecache.NewCache(25 * time.Second)
+	cfg := config{Next: &baseUrl, Previous: nil, Cache: &cache}
 	commands := GetCommand()
 
 	fmt.Println("Welcome to the Pokedex!")

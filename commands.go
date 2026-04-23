@@ -16,17 +16,24 @@ type cacheState interface {
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config) error
+	callback    func(c *config, param string) error
 }
 
-type LocationResponse struct {
-	Count    int     `json:"count"`
+type LocAreasResponse struct {
 	Next     *string `json:"next"`
 	Previous *string `json:"previous"`
 	Results  []struct {
 		Name string `json:"name"`
 		URL  string `json:"url"`
 	} `json:"results"`
+}
+
+type LocAreaIdResponse struct {
+	PokemonEncounters []struct {
+		Pokemon struct {
+			Name string `json:"name"`
+		} `json:"pokemon"`
+	} `json:"pokemon_encounters"`
 }
 
 func GetCommand() map[string]cliCommand {
@@ -51,6 +58,11 @@ func GetCommand() map[string]cliCommand {
 			description: "Displays the names of 20 previous location areas",
 			callback:    commandMapb,
 		},
+		"explore": {
+			name:        "explore",
+			description: "Displays list of Pokémon that can be encountered in this area",
+			callback:    commandExplore,
+		},
 	}
 }
 
@@ -70,8 +82,7 @@ func fetchData[T any](url string, c cacheState) (T, error) {
 		defer resp.Body.Close()
 
 		if resp.StatusCode > 299 {
-			fmt.Printf("Response failed with status code: %d and\nbody: %s\n", resp.StatusCode, body)
-			return data, err
+			return data, fmt.Errorf("Response failed with status code: %d and\nbody: %s\n", resp.StatusCode, body)
 		}
 
 		c.Add(url, body)
@@ -83,7 +94,7 @@ func fetchData[T any](url string, c cacheState) (T, error) {
 }
 
 func moveMap(cfg *config, url *string) error {
-	response, err := fetchData[LocationResponse](*url, cfg.Cache)
+	response, err := fetchData[LocAreasResponse](*url, cfg.Cache)
 	if err != nil {
 		return err
 	}
@@ -97,13 +108,13 @@ func moveMap(cfg *config, url *string) error {
 	return nil
 }
 
-func commandExit(cfg *config) error {
+func commandExit(cfg *config, param string) error {
 	fmt.Print("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(cfg *config) error {
+func commandHelp(cfg *config, param string) error {
 	fmt.Println("Usage:")
 	commands := GetCommand()
 	for _, command := range commands {
@@ -112,7 +123,7 @@ func commandHelp(cfg *config) error {
 	return nil
 }
 
-func commandMap(cfg *config) error {
+func commandMap(cfg *config, param string) error {
 	if cfg.Next == nil {
 		return errors.New("You are on the last page")
 	}
@@ -120,10 +131,31 @@ func commandMap(cfg *config) error {
 	return nil
 }
 
-func commandMapb(cfg *config) error {
+func commandMapb(cfg *config, param string) error {
 	if cfg.Previous == nil {
 		return errors.New("You are on the first page")
 	}
 	moveMap(cfg, cfg.Previous)
+	return nil
+}
+
+func commandExplore(cfg *config, param string) error {
+	if param == "" {
+		return fmt.Errorf("Provide a location name")
+	}
+	fmt.Printf("Exploring %s...\n", param)
+	url := cfg.BaseUrl + param
+	response, err := fetchData[LocAreaIdResponse](url, cfg.Cache)
+	if err != nil {
+		return err
+	}
+	if len(response.PokemonEncounters) > 0 {
+		fmt.Println("Found Pokémon:")
+		for _, v := range response.PokemonEncounters {
+			fmt.Println(v.Pokemon.Name)
+		}
+	} else {
+		fmt.Println("No Pokémon found in this area")
+	}
 	return nil
 }

@@ -13,6 +13,7 @@ type config struct {
 	Next     *string
 	Previous *string
 	Cache    *pokecache.Cache
+	BaseUrl  string
 }
 
 func cleanInput(text string) []string {
@@ -26,9 +27,9 @@ func cleanInput(text string) []string {
 
 func startRepl() {
 	scanner := bufio.NewScanner(os.Stdin)
-	baseUrl := "https://pokeapi.co/api/v2/location-area"
+	baseUrl := "https://pokeapi.co/api/v2/location-area/"
 	cache := pokecache.NewCache(25 * time.Second)
-	cfg := config{Next: &baseUrl, Previous: nil, Cache: &cache}
+	cfg := config{Next: &baseUrl, Previous: nil, Cache: &cache, BaseUrl: baseUrl}
 	commands := GetCommand()
 
 	fmt.Println("Welcome to the Pokedex!")
@@ -39,14 +40,18 @@ func startRepl() {
 		}
 
 		if scanner.Err() != nil {
-			scanner.Err()
+			fmt.Println(scanner.Err())
 		}
 
 		input := cleanInput(scanner.Text())
 		if len(input) > 0 {
 			// fmt.Printf("Your command was: %v\n", input[0])
 			if _, ok := commands[input[0]]; ok {
-				err := commands[input[0]].callback(&cfg)
+				var param string
+				if len(input) > 1 {
+					param = input[1]
+				}
+				err := commands[input[0]].callback(&cfg, param)
 				if err != nil {
 					fmt.Println(err)
 				}

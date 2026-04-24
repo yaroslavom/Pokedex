@@ -9,11 +9,22 @@ import (
 	"time"
 )
 
+type navigation struct {
+	BaseUrl       string
+	LocationAreas string
+	Pokemon       string
+	Next          *string
+	Previous      *string
+}
+
 type config struct {
-	Next     *string
-	Previous *string
-	Cache    *pokecache.Cache
-	BaseUrl  string
+	Cache   *pokecache.Cache
+	Nav     navigation
+	Pokedex map[string]Pokemon
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func cleanInput(text string) []string {
@@ -27,9 +38,10 @@ func cleanInput(text string) []string {
 
 func startRepl() {
 	scanner := bufio.NewScanner(os.Stdin)
-	baseUrl := "https://pokeapi.co/api/v2/location-area/"
+	baseUrl := "https://pokeapi.co/api/v2/"
 	cache := pokecache.NewCache(25 * time.Second)
-	cfg := config{Next: &baseUrl, Previous: nil, Cache: &cache, BaseUrl: baseUrl}
+	nav := navigation{BaseUrl: baseUrl, LocationAreas: "location-area/", Pokemon: "pokemon/", Next: ptr(baseUrl + "location-area/"), Previous: nil}
+	cfg := config{Nav: nav, Cache: &cache, Pokedex: make(map[string]Pokemon)}
 	commands := GetCommand()
 
 	fmt.Println("Welcome to the Pokedex!")
@@ -45,7 +57,6 @@ func startRepl() {
 
 		input := cleanInput(scanner.Text())
 		if len(input) > 0 {
-			// fmt.Printf("Your command was: %v\n", input[0])
 			if _, ok := commands[input[0]]; ok {
 				var param string
 				if len(input) > 1 {
